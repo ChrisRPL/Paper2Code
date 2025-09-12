@@ -1,0 +1,44 @@
+# FastAPI Web Framework
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+websockets>=12.0
+python-multipart>=0.0.6
+
+# Database & ORM
+sqlalchemy>=2.0.0
+alembic>=1.13.0
+aiosqlite>=0.19.0
+asyncpg>=0.29.0
+
+# Data Validation & Serialization
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+
+# Authentication & Security
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+python-multipart
+
+# File Handling
+aiofiles>=23.2.1
+
+# Background Tasks & Queue
+celery[redis]>=5.3.0
+redis>=5.0.0
+
+# HTTP Client (for external API calls)
+httpx>=0.25.0
+
+# Paper2Code Integration Dependencies
+# (These should match existing requirements.txt in root)
+openai>=1.65.4
+# vllm>=0.6.4.post1  # Uncomment if using local models
+transformers>=4.46.3
+tiktoken>=0.5.0
+
+# Development & Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.7.0
