@@ -1,103 +1,195 @@
-import Image from "next/image";
+'use client'
+
+import { useState } from 'react'
+import { FileUpload } from '@/components/upload/FileUpload'
+import { Brain, Github, ArrowRight } from 'lucide-react'
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [currentJobId, setCurrentJobId] = useState<string | null>(null)
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const handleUploadComplete = (jobId: string, filename: string) => {
+    setCurrentJobId(jobId)
+    console.log('Upload completed:', { jobId, filename })
+    // TODO: Navigate to processing view or update UI to show progress
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+      {/* Header */}
+      <header className="border-b border-slate-200/60 dark:border-slate-700/60 bg-white/70 dark:bg-slate-900/70 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="relative">
+                <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg blur opacity-25"></div>
+                <div className="relative bg-white dark:bg-slate-900 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <Brain className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                </div>
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                  Paper2Code
+                </h1>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Transform research into code
+                </p>
+              </div>
+            </div>
+            
+            <a
+              href="https://github.com/Paper2Code-AI/Paper2Code"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-100/60 dark:hover:bg-slate-800/60 rounded-lg transition-colors"
+            >
+              <Github className="w-4 h-4" />
+              <span>GitHub</span>
+            </a>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="text-center mb-16">
+          <div className="inline-flex items-center px-4 py-2 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 text-sm font-medium mb-6">
+            <Brain className="w-4 h-4 mr-2" />
+            AI-Powered Research Assistant
+          </div>
+          
+          <h1 className="text-5xl md:text-6xl font-bold text-slate-900 dark:text-slate-100 mb-6 tracking-tight">
+            From Research Papers
+            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">
+              To Working Code
+            </span>
+          </h1>
+          
+          <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto leading-relaxed">
+            Upload any research paper and watch our AI agents transform complex algorithms and methods 
+            into clean, executable code repositories. No more manual implementation struggles.
+          </p>
+        </div>
+
+        {/* Upload Section */}
+        <div className="mb-16">
+          <FileUpload 
+            onUploadComplete={handleUploadComplete}
+            disabled={false}
+          />
+        </div>
+
+        {/* Process Steps */}
+        <div className="grid md:grid-cols-3 gap-8 mb-16">
+          <div className="text-center">
+            <div className="relative mx-auto mb-4 w-16 h-16">
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-blue-600 rounded-full opacity-20 blur"></div>
+              <div className="relative bg-white dark:bg-slate-800 rounded-full p-4 border border-slate-200 dark:border-slate-700 shadow-sm">
+                <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">1</span>
+              </div>
+            </div>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
+              Planning Agent
+            </h3>
+            <p className="text-slate-600 dark:text-slate-400">
+              Analyzes your paper and creates a comprehensive implementation strategy
+            </p>
+          </div>
+          
+          <div className="text-center">
+            <div className="relative mx-auto mb-4 w-16 h-16">
+              <div className="absolute inset-0 bg-gradient-to-r from-indigo-400 to-indigo-600 rounded-full opacity-20 blur"></div>
+              <div className="relative bg-white dark:bg-slate-800 rounded-full p-4 border border-slate-200 dark:border-slate-700 shadow-sm">
+                <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">2</span>
+              </div>
+            </div>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
+              Analysis Agent
+            </h3>
+            <p className="text-slate-600 dark:text-slate-400">
+              Deep-dives into technical details and identifies key algorithms
+            </p>
+          </div>
+          
+          <div className="text-center">
+            <div className="relative mx-auto mb-4 w-16 h-16">
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-400 to-purple-600 rounded-full opacity-20 blur"></div>
+              <div className="relative bg-white dark:bg-slate-800 rounded-full p-4 border border-slate-200 dark:border-slate-700 shadow-sm">
+                <span className="text-2xl font-bold text-purple-600 dark:text-purple-400">3</span>
+              </div>
+            </div>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
+              Coding Agent
+            </h3>
+            <p className="text-slate-600 dark:text-slate-400">
+              Generates clean, documented code with proper project structure
+            </p>
+          </div>
+        </div>
+
+        {/* Features */}
+        <div className="text-center">
+          <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-8">
+            Why Choose Paper2Code?
+          </h2>
+          
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              { title: 'Multi-Agent System', desc: 'Specialized AI agents for each implementation phase' },
+              { title: 'Real-time Progress', desc: 'Watch your code being generated step by step' },
+              { title: 'Production Ready', desc: 'Clean, documented code with proper structure' },
+              { title: 'Open Source', desc: 'Full transparency and community-driven development' },
+            ].map((feature, index) => (
+              <div 
+                key={index}
+                className="p-6 bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm rounded-xl border border-slate-200/60 dark:border-slate-700/60 hover:shadow-md transition-shadow"
+              >
+                <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-2">
+                  {feature.title}
+                </h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  {feature.desc}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
+
+      {/* Footer */}
+      <footer className="border-t border-slate-200/60 dark:border-slate-700/60 mt-24">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2 text-sm text-slate-500 dark:text-slate-400">
+              <Brain className="w-4 h-4" />
+              <span>Paper2Code - Powered by AI Research</span>
+            </div>
+            
+            <div className="flex items-center space-x-4 text-sm">
+              <a 
+                href="#"
+                className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
+              >
+                About
+              </a>
+              <a 
+                href="#"
+                className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
+              >
+                Documentation
+              </a>
+              <a 
+                href="https://github.com/Paper2Code-AI/Paper2Code"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center space-x-1 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
+              >
+                <span>View on GitHub</span>
+                <ArrowRight className="w-3 h-3" />
+              </a>
+            </div>
+          </div>
+        </div>
       </footer>
     </div>
-  );
+  )
 }
