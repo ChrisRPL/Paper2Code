@@ -2,7 +2,8 @@
 Configuration settings for Paper2Code Web Application
 """
 
-from pydantic import BaseSettings, validator
+from pydantic_settings import BaseSettings
+from pydantic import validator
 from typing import List, Optional
 import os
 from pathlib import Path
