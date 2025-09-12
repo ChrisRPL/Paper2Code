@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 
 from .core.config import settings
+from .core.database import create_tables
 from .api.v1 import api_router
 
 # Create FastAPI instance
@@ -47,6 +48,9 @@ async def health_check():
 @app.on_event("startup")
 async def startup_event():
     """Application startup event"""
+    # Create database tables
+    await create_tables()
+    
     # Create necessary directories
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
     os.makedirs(settings.OUTPUT_DIR, exist_ok=True)
@@ -55,6 +59,7 @@ async def startup_event():
     print(f"🚀 Paper2Code API starting in {settings.ENVIRONMENT} mode")
     print(f"📁 Upload directory: {settings.UPLOAD_DIR}")
     print(f"📁 Output directory: {settings.OUTPUT_DIR}")
+    print(f"🗄️ Database initialized with async SQLAlchemy")
 
 @app.on_event("shutdown") 
 async def shutdown_event():
