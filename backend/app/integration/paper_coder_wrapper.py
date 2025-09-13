@@ -160,7 +160,7 @@ class Paper2CodeWrapper:
                 "--paper_name", paper_name
             ]
             
-            result = await self._run_subprocess(cmd, env, f"Planning stage for {paper_name}")
+            result = await self._run_subprocess(cmd, env, f"Planning stage for {paper_name}", job_id, "planning")
             
             # Send progress updates
             await self.websocket_manager.send_job_progress(job_id, "planning", 35, "Planning stage completed")
@@ -223,7 +223,7 @@ class Paper2CodeWrapper:
                 "--paper_name", paper_name
             ]
             
-            result = await self._run_subprocess(cmd, env, f"Analysis stage for {paper_name}")
+            result = await self._run_subprocess(cmd, env, f"Analysis stage for {paper_name}", job_id, "analysis")
             
             # Send progress updates
             await self.websocket_manager.send_job_progress(job_id, "analysis", 65, "Analysis stage completed")
@@ -288,7 +288,7 @@ class Paper2CodeWrapper:
                 "--paper_name", paper_name
             ]
             
-            result = await self._run_subprocess(cmd, env, f"Coding stage for {paper_name}")
+            result = await self._run_subprocess(cmd, env, f"Coding stage for {paper_name}", job_id, "coding")
             
             # Send progress updates
             await self.websocket_manager.send_job_progress(job_id, "coding", 95, "Code generation completed")
@@ -333,10 +333,12 @@ class Paper2CodeWrapper:
         self, 
         cmd: List[str], 
         env: Dict[str, str], 
-        description: str
+        description: str,
+        job_id: Optional[str] = None,
+        stage: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Run a subprocess with proper logging and error handling
+        Run a subprocess with real-time logging and progress streaming
         """
         logger.info(f"Executing: {' '.join(cmd)}")
         
@@ -350,29 +352,45 @@ class Paper2CodeWrapper:
                 cwd=str(self.codes_dir)
             )
             
-            stdout, stderr = await process.communicate()
-            
-            # Process output
-            stdout_text = stdout.decode('utf-8') if stdout else ""
-            stderr_text = stderr.decode('utf-8') if stderr else ""
-            
             logs = []
-            if stdout_text:
-                logs.append(f"STDOUT: {stdout_text}")
-            if stderr_text:
-                logs.append(f"STDERR: {stderr_text}")
             
-            if process.returncode == 0:
+            # Stream output in real-time
+            async def stream_output(stream, stream_name):
+                while True:
+                    line = await stream.readline()
+                    if not line:
+                        break
+                    
+                    line_text = line.decode('utf-8').rstrip()
+                    if line_text:
+                        log_entry = f"{stream_name}: {line_text}"
+                        logs.append(log_entry)
+                        logger.info(f"[{description}] {log_entry}")
+                        
+                        # Stream log to WebSocket if job_id provided
+                        if job_id and stage:
+                            await self.websocket_manager.send_stage_log(
+                                job_id, stage, stream_name.lower(), line_text
+                            )
+            
+            # Stream both stdout and stderr concurrently
+            await asyncio.gather(
+                stream_output(process.stdout, "STDOUT"),
+                stream_output(process.stderr, "STDERR")
+            )
+            
+            # Wait for process to complete
+            returncode = await process.wait()
+            
+            if returncode == 0:
                 logger.info(f"{description} completed successfully")
                 return {
                     "success": True,
                     "logs": logs,
-                    "returncode": process.returncode
+                    "returncode": returncode
                 }
             else:
-                error_msg = f"{description} failed with return code {process.returncode}"
-                if stderr_text:
-                    error_msg += f": {stderr_text}"
+                error_msg = f"{description} failed with return code {returncode}"
                 logger.error(error_msg)
                 raise Exception(error_msg)
                 
