@@ -2,25 +2,25 @@
 WebSocket endpoints for real-time communication
 """
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Depends
 from typing import Dict, List
 import json
 import asyncio
 from datetime import datetime
 
+from ...core.dependencies import get_websocket_manager
 from ...services.websocket_manager import WebSocketManagerService
 from ...schemas.websocket import WebSocketMessage, WebSocketMessageType
 
 router = APIRouter()
-
-# Initialize WebSocket manager
-websocket_manager = WebSocketManagerService()
 
 @router.websocket("/")
 async def websocket_endpoint(websocket: WebSocket):
     """
     Main WebSocket endpoint for real-time updates
     """
+    # Get websocket manager instance (WebSocket endpoints don't support dependency injection)
+    websocket_manager = get_websocket_manager()
     await websocket_manager.connect(websocket)
     
     try:
@@ -74,7 +74,9 @@ async def websocket_endpoint(websocket: WebSocket):
         await websocket_manager.disconnect(websocket)
 
 @router.get("/active-connections")
-async def get_active_connections():
+async def get_active_connections(
+    websocket_manager: WebSocketManagerService = Depends(get_websocket_manager)
+):
     """
     Get number of active WebSocket connections (for debugging)
     """
@@ -88,6 +90,7 @@ async def broadcast_job_update(job_id: str, update_data: dict):
     """
     Broadcast job update to all subscribed clients
     """
+    websocket_manager = get_websocket_manager()
     await websocket_manager.broadcast_to_job_subscribers(job_id, {
         "type": "job_update",
         "payload": {
@@ -100,6 +103,7 @@ async def broadcast_agent_status(job_id: str, agent_status: dict):
     """
     Broadcast agent status update
     """
+    websocket_manager = get_websocket_manager()
     await websocket_manager.broadcast_to_job_subscribers(job_id, {
         "type": "agent_status",
         "payload": {
@@ -112,6 +116,7 @@ async def broadcast_chat_message(job_id: str, message: dict):
     """
     Broadcast chat message update
     """
+    websocket_manager = get_websocket_manager()
     await websocket_manager.broadcast_to_job_subscribers(job_id, {
         "type": "chat_message",
         "payload": {

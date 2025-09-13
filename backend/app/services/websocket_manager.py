@@ -313,6 +313,27 @@ class WebSocketManagerService:
             }
         )
     
+    async def send_stage_log(
+        self,
+        job_id: str,
+        stage: str,
+        stream_type: str,
+        log_line: str
+    ):
+        """Send real-time stage log output"""
+        await self.send_job_update(
+            job_id,
+            WebSocketMessageType.JOB_STAGE_UPDATE,
+            {
+                "stage": stage,
+                "log": {
+                    "stream": stream_type,
+                    "message": log_line,
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            }
+        )
+    
     async def cleanup_inactive_connections(self):
         """Clean up inactive WebSocket connections (for maintenance)"""
         inactive_connections = []

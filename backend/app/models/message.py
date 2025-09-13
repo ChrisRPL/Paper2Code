@@ -35,7 +35,7 @@ class Message(Base):
     
     # Metadata
     stage = Column(String, nullable=True)  # Which processing stage this message relates to
-    metadata = Column(Text, nullable=True)  # JSON string for additional metadata
+    message_metadata = Column(Text, nullable=True)  # JSON string for additional metadata
     
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
