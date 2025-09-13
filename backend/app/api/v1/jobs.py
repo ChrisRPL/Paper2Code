@@ -11,6 +11,12 @@ import zipfile
 import tempfile
 from pathlib import Path
 
+from ...core.dependencies import (
+    get_file_manager,
+    get_job_tracker,
+    get_websocket_manager,
+    get_paper_coder_wrapper
+)
 from ...schemas.job import JobResponse, JobListResponse, JobStatus
 from ...services.job_tracker import JobTrackerService
 from ...services.websocket_manager import WebSocketManagerService
@@ -19,13 +25,15 @@ from ...integration.paper_coder_wrapper import Paper2CodeWrapper
 
 router = APIRouter()
 
-# Initialize services
-job_tracker = JobTrackerService()
-websocket_manager = WebSocketManagerService()
-file_manager = FileManagerService()
-paper_coder = Paper2CodeWrapper(websocket_manager)
-
-async def process_job_background(job_id: str, pdf_path: str, filename: str):
+async def process_job_background(
+    job_id: str, 
+    pdf_path: str, 
+    filename: str,
+    file_manager: FileManagerService,
+    job_tracker: JobTrackerService,
+    websocket_manager: WebSocketManagerService,
+    paper_coder: Paper2CodeWrapper
+):
     """
     Background task to process job through Paper2Code pipeline
     """
@@ -53,7 +61,8 @@ async def process_job_background(job_id: str, pdf_path: str, filename: str):
 async def list_jobs(
     status: Optional[JobStatus] = None,
     limit: int = 50,
-    offset: int = 0
+    offset: int = 0,
+    job_tracker: JobTrackerService = Depends(get_job_tracker)
 ):
     """
     Get list of processing jobs
@@ -69,7 +78,10 @@ async def list_jobs(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/{job_id}", response_model=JobResponse)
-async def get_job(job_id: str):
+async def get_job(
+    job_id: str,
+    job_tracker: JobTrackerService = Depends(get_job_tracker)
+):
     """
     Get details of a specific job
     """
@@ -84,7 +96,14 @@ async def get_job(job_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/{job_id}/start")
-async def start_job(job_id: str, background_tasks: BackgroundTasks):
+async def start_job(
+    job_id: str, 
+    background_tasks: BackgroundTasks,
+    job_tracker: JobTrackerService = Depends(get_job_tracker),
+    file_manager: FileManagerService = Depends(get_file_manager),
+    websocket_manager: WebSocketManagerService = Depends(get_websocket_manager),
+    paper_coder: Paper2CodeWrapper = Depends(get_paper_coder_wrapper)
+):
     """
     Start processing a job manually
     """
@@ -103,7 +122,16 @@ async def start_job(job_id: str, background_tasks: BackgroundTasks):
         await job_tracker.start_job_processing(job_id)
         
         # Schedule background processing
-        background_tasks.add_task(process_job_background, job_id, job.original_file_path, job.filename)
+        background_tasks.add_task(
+            process_job_background, 
+            job_id, 
+            job.original_file_path, 
+            job.filename,
+            file_manager,
+            job_tracker,
+            websocket_manager,
+            paper_coder
+        )
         
         return {"message": "Job processing started", "job_id": job_id}
     except HTTPException:
@@ -112,7 +140,10 @@ async def start_job(job_id: str, background_tasks: BackgroundTasks):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/{job_id}/cancel")
-async def cancel_job(job_id: str):
+async def cancel_job(
+    job_id: str,
+    job_tracker: JobTrackerService = Depends(get_job_tracker)
+):
     """
     Cancel a running job
     """
@@ -128,7 +159,10 @@ async def cancel_job(job_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/{job_id}/download")
-async def download_job_result(job_id: str):
+async def download_job_result(
+    job_id: str,
+    job_tracker: JobTrackerService = Depends(get_job_tracker)
+):
     """
     Download the generated repository for a completed job
     """

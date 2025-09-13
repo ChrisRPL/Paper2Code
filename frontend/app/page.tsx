@@ -5,11 +5,12 @@ import { FileUpload } from '@/components/upload/FileUpload'
 import { ChatContainer } from '@/components/chat'
 import { JobDashboard } from '@/components/jobs'
 import { RepositoryBrowser, type FileNode } from '@/components/repository'
+import { WebSocketTest } from '@/components/test/WebSocketTest'
 import { Brain, Github, ArrowRight, MessageCircle, Activity, Folder } from 'lucide-react'
 
 export default function Home() {
   const [currentJobId, setCurrentJobId] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'upload' | 'dashboard' | 'chat' | 'repository'>('upload')
+  const [activeTab, setActiveTab] = useState<'upload' | 'dashboard' | 'chat' | 'repository' | 'test'>('upload')
 
   const handleUploadComplete = (jobId: string, filename: string) => {
     setCurrentJobId(jobId)
@@ -104,6 +105,18 @@ export default function Home() {
           >
             <Folder className="w-4 h-4" />
             <span>Repository</span>
+          </button>
+          
+          <button
+            onClick={() => setActiveTab('test')}
+            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-200 ${
+              activeTab === 'test'
+                ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+            }`}
+          >
+            <Activity className="w-4 h-4" />
+            <span>Test</span>
           </button>
         </div>
 
@@ -293,6 +306,12 @@ export default function Home() {
               <Brain className="w-5 h-5" />
               <span>Upload Paper</span>
             </button>
+          </div>
+        )}
+
+        {activeTab === 'test' && (
+          <div className="py-8">
+            <WebSocketTest />
           </div>
         )}
       </main>

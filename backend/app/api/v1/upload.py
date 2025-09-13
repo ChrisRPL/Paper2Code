@@ -2,7 +2,7 @@
 File upload endpoints for PDF processing
 """
 
-from fastapi import APIRouter, File, UploadFile, HTTPException, BackgroundTasks
+from fastapi import APIRouter, File, UploadFile, HTTPException, BackgroundTasks, Depends
 from fastapi.responses import JSONResponse
 import os
 import aiofiles
@@ -12,6 +12,12 @@ import logging
 from typing import List
 
 from ...core.config import settings
+from ...core.dependencies import (
+    get_file_manager,
+    get_job_tracker,
+    get_websocket_manager,
+    get_paper_coder_wrapper
+)
 from ...schemas.upload import UploadResponse, FileValidationError
 from ...services.file_manager import FileManagerService
 from ...services.job_tracker import JobTrackerService
@@ -20,13 +26,15 @@ from ...integration.paper_coder_wrapper import Paper2CodeWrapper
 
 router = APIRouter()
 
-# Initialize services
-file_manager = FileManagerService()
-job_tracker = JobTrackerService()
-websocket_manager = WebSocketManagerService()
-paper_coder = Paper2CodeWrapper(websocket_manager)
-
-async def process_paper_background(job_id: str, pdf_path: str, filename: str):
+async def process_paper_background(
+    job_id: str, 
+    pdf_path: str, 
+    filename: str,
+    file_manager: FileManagerService,
+    job_tracker: JobTrackerService,
+    websocket_manager: WebSocketManagerService,
+    paper_coder: Paper2CodeWrapper
+):
     """
     Background task to process paper through Paper2Code pipeline
     """
@@ -53,7 +61,11 @@ async def process_paper_background(job_id: str, pdf_path: str, filename: str):
 @router.post("/", response_model=UploadResponse)
 async def upload_file(
     background_tasks: BackgroundTasks,
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
+    file_manager: FileManagerService = Depends(get_file_manager),
+    job_tracker: JobTrackerService = Depends(get_job_tracker),
+    websocket_manager: WebSocketManagerService = Depends(get_websocket_manager),
+    paper_coder: Paper2CodeWrapper = Depends(get_paper_coder_wrapper)
 ):
     """
     Upload a PDF file for processing
@@ -81,7 +93,16 @@ async def upload_file(
         )
         
         # Schedule background processing
-        background_tasks.add_task(process_paper_background, job_id, file_path, file.filename)
+        background_tasks.add_task(
+            process_paper_background, 
+            job_id, 
+            file_path, 
+            file.filename,
+            file_manager,
+            job_tracker,
+            websocket_manager,
+            paper_coder
+        )
         
         return UploadResponse(
             job_id=job_id,
@@ -110,7 +131,10 @@ async def get_supported_formats():
     }
 
 @router.delete("/{file_id}")
-async def delete_uploaded_file(file_id: str):
+async def delete_uploaded_file(
+    file_id: str,
+    file_manager: FileManagerService = Depends(get_file_manager)
+):
     """Delete an uploaded file"""
     try:
         await file_manager.delete_file(file_id)
