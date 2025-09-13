@@ -2,7 +2,7 @@
 export interface Message {
   id: string
   content: string
-  type: 'user' | 'agent' | 'system'
+  type: 'user' | 'agent' | 'system' | 'success' | 'error'
   timestamp: Date
   jobId?: string
 }

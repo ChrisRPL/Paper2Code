@@ -8,18 +8,47 @@ import os
 import aiofiles
 from pathlib import Path
 import uuid
+import logging
 from typing import List
 
 from ...core.config import settings
 from ...schemas.upload import UploadResponse, FileValidationError
 from ...services.file_manager import FileManagerService
 from ...services.job_tracker import JobTrackerService
+from ...services.websocket_manager import WebSocketManagerService
+from ...integration.paper_coder_wrapper import Paper2CodeWrapper
 
 router = APIRouter()
 
 # Initialize services
 file_manager = FileManagerService()
 job_tracker = JobTrackerService()
+websocket_manager = WebSocketManagerService()
+paper_coder = Paper2CodeWrapper(websocket_manager)
+
+async def process_paper_background(job_id: str, pdf_path: str, filename: str):
+    """
+    Background task to process paper through Paper2Code pipeline
+    """
+    try:
+        logger = logging.getLogger(__name__)
+        logger.info(f"Starting background processing for job {job_id}")
+        
+        # Convert PDF to JSON first
+        json_path = await file_manager.convert_pdf_to_json(pdf_path)
+        
+        # Extract paper name from filename (remove .pdf extension)
+        paper_name = filename.replace('.pdf', '').replace(' ', '_')
+        
+        # Process through Paper2Code pipeline
+        repository_path = await paper_coder.process_paper(job_id, json_path, paper_name)
+        
+        logger.info(f"Background processing completed for job {job_id}: {repository_path}")
+        
+    except Exception as e:
+        logger.error(f"Background processing failed for job {job_id}: {str(e)}")
+        await job_tracker.fail_job(job_id, f"Processing failed: {str(e)}")
+        await websocket_manager.send_job_error(job_id, str(e))
 
 @router.post("/", response_model=UploadResponse)
 async def upload_file(
@@ -52,7 +81,7 @@ async def upload_file(
         )
         
         # Schedule background processing
-        # background_tasks.add_task(process_paper_background, job_id, file_path)
+        background_tasks.add_task(process_paper_background, job_id, file_path, file.filename)
         
         return UploadResponse(
             job_id=job_id,
