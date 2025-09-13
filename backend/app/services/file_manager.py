@@ -187,11 +187,52 @@ class FileManagerService:
         """
         try:
             import httpx
+            grobid_url = os.getenv("GROBID_URL", "http://localhost:8070")
             async with httpx.AsyncClient() as client:
-                response = await client.get("http://localhost:8070/api/version", timeout=5.0)
-                return response.status_code == 200
-        except Exception:
+                response = await client.get(f"{grobid_url}/api/isalive", timeout=5.0)
+                if response.status_code == 200:
+                    logger.info(f"Grobid service is healthy at {grobid_url}")
+                    return True
+                return False
+        except Exception as e:
+            logger.warning(f"Grobid service check failed: {e}")
             return False
+    
+    async def process_pdf_with_grobid(self, pdf_path: str) -> Optional[str]:
+        """
+        Process PDF directly with Grobid service for better parsing
+        """
+        try:
+            import httpx
+            grobid_url = os.getenv("GROBID_URL", "http://localhost:8070")
+            
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                # Read PDF file
+                with open(pdf_path, 'rb') as f:
+                    pdf_content = f.read()
+                
+                # Send to Grobid for processing
+                files = {'input': ('paper.pdf', pdf_content, 'application/pdf')}
+                response = await client.post(
+                    f"{grobid_url}/api/processFulltextDocument",
+                    files=files
+                )
+                
+                if response.status_code == 200:
+                    # Save TEI XML response
+                    tei_path = pdf_path.replace('.pdf', '_grobid.xml')
+                    with open(tei_path, 'w', encoding='utf-8') as f:
+                        f.write(response.text)
+                    
+                    logger.info(f"Grobid processing successful: {tei_path}")
+                    return tei_path
+                else:
+                    logger.error(f"Grobid processing failed: {response.status_code}")
+                    return None
+                    
+        except Exception as e:
+            logger.error(f"Error processing PDF with Grobid: {e}")
+            return None
     
     async def delete_file(self, file_id: str):
         """

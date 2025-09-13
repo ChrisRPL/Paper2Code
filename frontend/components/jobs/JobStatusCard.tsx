@@ -60,8 +60,7 @@ export function JobStatusCard({
   }
 
   const formatDuration = () => {
-    if (!job.startedAt) return null
-    const start = new Date(job.startedAt).getTime()
+    const start = new Date(job.createdAt).getTime()
     const end = job.completedAt ? new Date(job.completedAt).getTime() : Date.now()
     const duration = Math.floor((end - start) / 1000)
     
@@ -163,14 +162,14 @@ export function JobStatusCard({
               showPercentage
             />
             
-            {job.currentTask && (
+            {job.stage && job.status === 'processing' && (
               <motion.div
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 className="flex items-center space-x-2 text-sm text-slate-600 dark:text-slate-300"
               >
                 <Loader2 className="w-3 h-3 animate-spin" />
-                <span className="truncate">{job.currentTask}</span>
+                <span className="truncate capitalize">{job.stage} in progress...</span>
               </motion.div>
             )}
           </div>

@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  # Grobid service for enhanced PDF parsing
+  grobid:
+    image: lfoppiano/grobid:0.7.3
+    container_name: paper2code_grobid
+    ports:
+      - "8070:8070"
+    environment:
+      - GROBID_SERVICE_HOST=0.0.0.0
+      - GROBID_SERVICE_PORT=8070
+    volumes:
+      - grobid_data:/opt/grobid/grobid-home
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8070/api/isalive"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - paper2code_network
+
+  # PostgreSQL database (optional - for production)
+  # postgres:
+  #   image: postgres:15-alpine
+  #   container_name: paper2code_db
+  #   environment:
+  #     POSTGRES_USER: paper2code
+  #     POSTGRES_PASSWORD: ${DB_PASSWORD:-paper2code_secret}
+  #     POSTGRES_DB: paper2code
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+  #   networks:
+  #     - paper2code_network
+  #   restart: unless-stopped
+
+  # Redis cache (optional - for production)
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: paper2code_redis
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+  #   networks:
+  #     - paper2code_network
+  #   restart: unless-stopped
+
+volumes:
+  grobid_data:
+  # postgres_data:
+  # redis_data:
+
+networks:
+  paper2code_network:
+    driver: bridge

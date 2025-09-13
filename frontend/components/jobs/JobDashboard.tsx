@@ -6,7 +6,7 @@ import { useJobStore } from '@/store/index'
 import { useWebSocket } from '@/hooks/useWebSocket'
 import { JobStatusCard } from './JobStatusCard'
 import { AgentStatusIndicator } from './AgentStatusIndicator'
-import { Activity, Briefcase, Clock, CheckCircle } from 'lucide-react'
+import { Activity, Briefcase, Clock, CheckCircle, Brain } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface JobDashboardProps {
@@ -14,16 +14,16 @@ interface JobDashboardProps {
 }
 
 export function JobDashboard({ className }: JobDashboardProps) {
-  const { activeJobs, completedJobs, agentStatuses } = useJobStore()
+  const { activeJobs, jobHistory, agentStatus } = useJobStore()
   const { isConnected } = useWebSocket()
   
-  const allJobs = [...activeJobs, ...completedJobs].sort((a, b) => 
+  const allJobs = [...activeJobs, ...jobHistory].sort((a, b) => 
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   )
 
   const stats = {
     active: activeJobs.length,
-    completed: completedJobs.length,
+    completed: jobHistory.length,
     total: allJobs.length
   }
 
@@ -188,7 +188,7 @@ export function JobDashboard({ className }: JobDashboardProps) {
             Agent Status
           </h3>
           
-          {agentStatuses.length === 0 ? (
+          {agentStatus.length === 0 ? (
             <div className="bg-white dark:bg-slate-800 rounded-2xl p-8 text-center border border-slate-200 dark:border-slate-700">
               <Brain className="w-10 h-10 text-slate-400 mx-auto mb-3" />
               <p className="text-sm text-slate-600 dark:text-slate-400">
@@ -199,7 +199,7 @@ export function JobDashboard({ className }: JobDashboardProps) {
               </p>
             </div>
           ) : (
-            <AgentStatusIndicator agents={agentStatuses} />
+            <AgentStatusIndicator agents={agentStatus} />
           )}
 
           {/* Quick Stats */}

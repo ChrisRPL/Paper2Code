@@ -50,10 +50,17 @@ interface UseWebSocketReturn {
   disconnect: () => void
 }
 
-const DEFAULT_OPTIONS: Required<UseWebSocketOptions> = {
-  url: process.env.NODE_ENV === 'production' 
+const getDefaultUrl = () => {
+  if (typeof window === 'undefined') {
+    return 'ws://localhost:8000/api/v1/ws/' // Default for SSR
+  }
+  return process.env.NODE_ENV === 'production' 
     ? `wss://${window.location.host}/api/v1/ws/`
-    : 'ws://localhost:8000/api/v1/ws/',
+    : 'ws://localhost:8000/api/v1/ws/'
+}
+
+const DEFAULT_OPTIONS: Required<UseWebSocketOptions> = {
+  url: getDefaultUrl(),
   autoConnect: true,
   maxReconnectAttempts: 10,
   reconnectInterval: 1000, // Start with 1 second

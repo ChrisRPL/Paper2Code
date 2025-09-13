@@ -4,11 +4,12 @@ import { useState } from 'react'
 import { FileUpload } from '@/components/upload/FileUpload'
 import { ChatContainer } from '@/components/chat'
 import { JobDashboard } from '@/components/jobs'
-import { Brain, Github, ArrowRight, MessageCircle, Activity } from 'lucide-react'
+import { RepositoryBrowser, type FileNode } from '@/components/repository'
+import { Brain, Github, ArrowRight, MessageCircle, Activity, Folder } from 'lucide-react'
 
 export default function Home() {
   const [currentJobId, setCurrentJobId] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'upload' | 'dashboard' | 'chat'>('upload')
+  const [activeTab, setActiveTab] = useState<'upload' | 'dashboard' | 'chat' | 'repository'>('upload')
 
   const handleUploadComplete = (jobId: string, filename: string) => {
     setCurrentJobId(jobId)
@@ -91,6 +92,18 @@ export default function Home() {
           >
             <MessageCircle className="w-4 h-4" />
             <span>Chat</span>
+          </button>
+          
+          <button
+            onClick={() => setActiveTab('repository')}
+            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-200 ${
+              activeTab === 'repository'
+                ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+            }`}
+          >
+            <Folder className="w-4 h-4" />
+            <span>Repository</span>
           </button>
         </div>
 
@@ -251,6 +264,35 @@ export default function Home() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'repository' && currentJobId && (
+          <div className="h-[800px]">
+            <RepositoryBrowser
+              jobId={currentJobId}
+              files={[]}
+              onFileSelect={(file) => console.log('Selected file:', file)}
+            />
+          </div>
+        )}
+
+        {activeTab === 'repository' && !currentJobId && (
+          <div className="flex flex-col items-center justify-center h-96 text-center">
+            <Folder className="w-16 h-16 text-slate-400 mb-4" />
+            <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-2">
+              No Repository Available
+            </h3>
+            <p className="text-slate-600 dark:text-slate-400 max-w-md">
+              Upload and process a research paper to generate a code repository that you can explore and download.
+            </p>
+            <button
+              onClick={() => setActiveTab('upload')}
+              className="mt-6 flex items-center space-x-2 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+            >
+              <Brain className="w-5 h-5" />
+              <span>Upload Paper</span>
+            </button>
           </div>
         )}
       </main>
