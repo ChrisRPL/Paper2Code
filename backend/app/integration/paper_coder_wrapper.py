@@ -13,6 +13,13 @@ import logging
 from datetime import datetime
 
 from ..core.config import settings
+from ..core.retry import (
+    retry_with_backoff,
+    RetryableError,
+    PermanentError,
+    PAPER2CODE_STAGE_RETRY_CONFIG,
+    SUBPROCESS_RETRY_CONFIG
+)
 from ..services.job_tracker import JobTrackerService
 from ..services.websocket_manager import WebSocketManagerService
 from ..models.job import JobStatus, ProcessingStage
@@ -125,15 +132,19 @@ class Paper2CodeWrapper:
             
             raise Exception(error_message)
     
+    @retry_with_backoff(
+        config=PAPER2CODE_STAGE_RETRY_CONFIG,
+        operation_id="planning_stage"
+    )
     async def _run_planning_stage(
-        self, 
+        self,
         job_id: str,
-        pdf_json_path: str, 
+        pdf_json_path: str,
         paper_name: str,
         output_dir: Path
     ) -> Dict[str, Any]:
         """
-        Execute the planning stage of Paper2Code
+        Execute the planning stage of Paper2Code with retry logic
         """
         try:
             # Determine which planning script to use based on OpenAI API availability
@@ -141,7 +152,7 @@ class Paper2CodeWrapper:
             if not os.getenv("OPENAI_API_KEY"):
                 planning_script = "1_planning_llm.py"  # Use open-source version
                 logger.info("No OpenAI API key found, using open-source model for planning")
-            
+
             # Set up environment variables for the planning stage
             env = os.environ.copy()
             env.update({
@@ -149,7 +160,7 @@ class Paper2CodeWrapper:
                 "PAPER_NAME": paper_name,
                 "OUTPUT_DIR": str(output_dir),
             })
-            
+
             # Run planning stage
             cmd = [
                 sys.executable,
@@ -159,7 +170,7 @@ class Paper2CodeWrapper:
                 "--output_dir", str(output_dir),
                 "--paper_name", paper_name
             ]
-            
+
             result = await self._run_subprocess(cmd, env, f"Planning stage for {paper_name}", job_id, "planning")
             
             # Send progress updates
@@ -189,15 +200,19 @@ class Paper2CodeWrapper:
             logger.error(f"Planning stage failed: {e}")
             raise Exception(f"Planning stage failed: {str(e)}")
     
+    @retry_with_backoff(
+        config=PAPER2CODE_STAGE_RETRY_CONFIG,
+        operation_id="analysis_stage"
+    )
     async def _run_analysis_stage(
         self,
         job_id: str,
         pdf_json_path: str,
-        paper_name: str, 
+        paper_name: str,
         output_dir: Path
     ) -> Dict[str, Any]:
         """
-        Execute the analysis stage of Paper2Code
+        Execute the analysis stage of Paper2Code with retry logic
         """
         try:
             # Determine which analysis script to use
@@ -251,6 +266,10 @@ class Paper2CodeWrapper:
             logger.error(f"Analysis stage failed: {e}")
             raise Exception(f"Analysis stage failed: {str(e)}")
     
+    @retry_with_backoff(
+        config=PAPER2CODE_STAGE_RETRY_CONFIG,
+        operation_id="coding_stage"
+    )
     async def _run_coding_stage(
         self,
         job_id: str,
@@ -260,7 +279,7 @@ class Paper2CodeWrapper:
         repo_dir: Path
     ) -> Dict[str, Any]:
         """
-        Execute the coding stage of Paper2Code
+        Execute the coding stage of Paper2Code with retry logic
         """
         try:
             # Determine which coding script to use
@@ -329,16 +348,20 @@ class Paper2CodeWrapper:
             logger.error(f"Coding stage failed: {e}")
             raise Exception(f"Coding stage failed: {str(e)}")
     
+    @retry_with_backoff(
+        config=SUBPROCESS_RETRY_CONFIG,
+        operation_id="subprocess_execution"
+    )
     async def _run_subprocess(
-        self, 
-        cmd: List[str], 
-        env: Dict[str, str], 
+        self,
+        cmd: List[str],
+        env: Dict[str, str],
         description: str,
         job_id: Optional[str] = None,
         stage: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Run a subprocess with real-time logging and progress streaming
+        Run a subprocess with real-time logging, progress streaming, and retry logic
         """
         logger.info(f"Executing: {' '.join(cmd)}")
         
@@ -392,14 +415,91 @@ class Paper2CodeWrapper:
             else:
                 error_msg = f"{description} failed with return code {returncode}"
                 logger.error(error_msg)
-                raise Exception(error_msg)
-                
-        except asyncio.TimeoutError:
-            raise Exception(f"{description} timed out")
+
+                # Classify error type based on return code and error messages
+                if self._is_retryable_error(returncode, logs):
+                    raise RetryableError(error_msg)
+                else:
+                    raise PermanentError(error_msg)
+
+        except asyncio.TimeoutError as e:
+            # Timeouts are generally retryable
+            raise RetryableError(f"{description} timed out") from e
+        except (OSError, ConnectionError) as e:
+            # Network/system errors are retryable
+            raise RetryableError(f"{description} execution failed: {str(e)}") from e
         except Exception as e:
             logger.error(f"{description} execution failed: {e}")
-            raise Exception(f"{description} execution failed: {str(e)}")
-    
+            # Other exceptions are permanent by default
+            raise PermanentError(f"{description} execution failed: {str(e)}") from e
+
+    def _is_retryable_error(self, returncode: int, logs: List[str]) -> bool:
+        """
+        Determine if an error is retryable based on return code and log messages.
+        """
+        # Retryable return codes (temporary failures)
+        retryable_codes = {
+            1,    # General error (might be temporary)
+            2,    # Misuse of shell builtins (might be temporary)
+            130,  # Script terminated by Ctrl+C
+            137,  # Process killed (SIGKILL)
+            143,  # Process terminated (SIGTERM)
+        }
+
+        # Permanent failure codes
+        permanent_codes = {
+            127,  # Command not found
+            126,  # Command not executable
+            128,  # Invalid argument to exit
+        }
+
+        if returncode in permanent_codes:
+            return False
+
+        if returncode in retryable_codes:
+            return True
+
+        # Check log messages for specific error patterns
+        log_text = " ".join(logs).lower()
+
+        # Retryable error patterns
+        retryable_patterns = [
+            "connection",
+            "timeout",
+            "temporary",
+            "rate limit",
+            "server error",
+            "network",
+            "unavailable",
+            "busy",
+            "overloaded"
+        ]
+
+        # Permanent error patterns
+        permanent_patterns = [
+            "file not found",
+            "permission denied",
+            "invalid syntax",
+            "module not found",
+            "invalid argument",
+            "malformed",
+            "corrupted",
+            "unsupported format"
+        ]
+
+        # Check for permanent errors first
+        for pattern in permanent_patterns:
+            if pattern in log_text:
+                return False
+
+        # Check for retryable errors
+        for pattern in retryable_patterns:
+            if pattern in log_text:
+                return True
+
+        # Default: errors with non-zero exit codes might be retryable
+        return returncode != 0
+
     async def cancel_job(self, job_id: str) -> bool:
         """
         Cancel a running Paper2Code job
