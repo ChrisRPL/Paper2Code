@@ -251,6 +251,74 @@ class JobTrackerService:
         except Exception as e:
             logger.error(f"Error failing job {job_id}: {e}")
             return False
+
+    async def reset_for_retry(self, job_id: str) -> bool:
+        """
+        Reset a failed job to pending for retry and increment retry_count
+        """
+        try:
+            from ..core.database import async_session_factory
+            async with async_session_factory() as session:
+                await session.execute(
+                    update(Job)
+                    .where(Job.id == job_id)
+                    .values(
+                        status=JobStatus.PENDING,
+                        stage=ProcessingStage.PREPROCESSING,
+                        progress=0,
+                        error_message=None,
+                        started_at=None,
+                        completed_at=None,
+                        retry_count=Job.retry_count + 1,  # type: ignore
+                        updated_at=datetime.utcnow(),
+                    )
+                )
+                await session.commit()
+                return True
+        except Exception as e:
+            logger.error(f"Error resetting job {job_id} for retry: {e}")
+            return False
+
+    async def get_job_logs(self, job_id: str) -> list[dict]:
+        """
+        Retrieve parsed processing logs for a job
+        """
+        try:
+            from ..core.database import async_session_factory
+            import json
+            async with async_session_factory() as session:
+                result = await session.execute(select(Job).where(Job.id == job_id))
+                job = result.scalar_one_or_none()
+                if not job or not job.processing_logs:
+                    return []
+                try:
+                    return json.loads(job.processing_logs)
+                except Exception:
+                    return []
+        except Exception as e:
+            logger.error(f"Error getting logs for job {job_id}: {e}")
+            return []
+
+    async def get_statistics(self) -> dict:
+        """
+        Aggregate counts of jobs by status
+        """
+        try:
+            from ..core.database import async_session_factory
+            async with async_session_factory() as session:
+                result = await session.execute(select(Job))
+                jobs = result.scalars().all()
+                total = len(jobs)
+                by_status = {s.value: 0 for s in JobStatus}
+                for j in jobs:
+                    by_status[j.status.value] = by_status.get(j.status.value, 0) + 1
+                return {
+                    "total_jobs": total,
+                    "jobs_by_status": by_status,
+                }
+        except Exception as e:
+            logger.error(f"Error computing job statistics: {e}")
+            return {"total_jobs": 0, "jobs_by_status": {s.value: 0 for s in JobStatus}}
     
     async def cancel_job(self, job_id: str) -> bool:
         """

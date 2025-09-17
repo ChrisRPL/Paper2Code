@@ -16,6 +16,7 @@ import logging
 
 from ..core.config import settings
 from ..schemas.upload import FileValidationResult
+from ..core.errors import ServiceUnavailableError
 
 logger = logging.getLogger(__name__)
 
@@ -129,10 +130,8 @@ class FileManagerService:
             # Check if Grobid service is running (basic check)
             grobid_health = await self._check_grobid_service()
             if not grobid_health:
-                logger.warning("Grobid service not detected, attempting to start...")
-                # In production, you might want to start Grobid automatically
-                # For now, we'll raise an error
-                raise Exception("Grobid service not available. Please start Grobid service on port 8070")
+                logger.warning("Grobid service not detected or unavailable")
+                raise ServiceUnavailableError("Service temporarily unavailable: Grobid not reachable")
             
             # Run s2orc PDF processing
             process_script = self.s2orc_path / "doc2json" / "grobid2json" / "process_pdf.py"

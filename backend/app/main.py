@@ -10,6 +10,8 @@ import os
 from pathlib import Path
 
 from .core.config import settings
+from .core.errors import register_exception_handlers
+from .core.middleware import RequestIDMiddleware, SimpleRateLimiter
 from .core.database import create_tables
 from .api.v1 import api_router
 
@@ -29,6 +31,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Custom middleware
+app.add_middleware(RequestIDMiddleware)
+app.add_middleware(SimpleRateLimiter)
 
 # Include API router
 app.include_router(api_router, prefix="/api")
@@ -60,6 +66,9 @@ async def startup_event():
     print(f"📁 Upload directory: {settings.UPLOAD_DIR}")
     print(f"📁 Output directory: {settings.OUTPUT_DIR}")
     print(f"🗄️ Database initialized with async SQLAlchemy")
+
+    # Register exception handlers after app is created
+    register_exception_handlers(app)
 
 @app.on_event("shutdown") 
 async def shutdown_event():

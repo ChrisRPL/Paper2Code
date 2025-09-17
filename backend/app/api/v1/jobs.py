@@ -77,6 +77,31 @@ async def list_jobs(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@router.get("/{job_id}/logs")
+async def get_job_logs(
+    job_id: str,
+    job_tracker: JobTrackerService = Depends(get_job_tracker)
+):
+    """
+    Return processing logs for a job as a list (may be empty)
+    """
+    try:
+        job = await job_tracker.get_job(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+        from json import loads
+        try:
+            # JobResponse doesn't include logs; fetch raw from service helper
+            logs = await job_tracker.get_job_logs(job_id)
+        except Exception:
+            logs = []
+        return {"job_id": job_id, "logs": logs or []}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/{job_id}", response_model=JobResponse)
 async def get_job(
     job_id: str,
@@ -134,6 +159,48 @@ async def start_job(
         )
         
         return {"message": "Job processing started", "job_id": job_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/{job_id}/retry")
+async def retry_job(
+    job_id: str,
+    background_tasks: BackgroundTasks,
+    job_tracker: JobTrackerService = Depends(get_job_tracker),
+    file_manager: FileManagerService = Depends(get_file_manager),
+    websocket_manager: WebSocketManagerService = Depends(get_websocket_manager),
+    paper_coder: Paper2CodeWrapper = Depends(get_paper_coder_wrapper)
+):
+    """
+    Retry a failed job; resets status and restarts processing
+    """
+    try:
+        job = await job_tracker.get_job(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+        if job.status != JobStatus.ERROR:
+            raise HTTPException(status_code=400, detail=f"Job not eligible for retry. Current status: {job.status}")
+
+        reset_ok = await job_tracker.reset_for_retry(job_id)
+        if not reset_ok:
+            raise HTTPException(status_code=500, detail="Failed to reset job for retry")
+
+        await job_tracker.start_job_processing(job_id)
+
+        background_tasks.add_task(
+            process_job_background,
+            job_id,
+            job.original_file_path,
+            job.filename,
+            file_manager,
+            job_tracker,
+            websocket_manager,
+            paper_coder,
+        )
+        return {"message": "Job retry started", "job_id": job_id}
     except HTTPException:
         raise
     except Exception as e:
@@ -207,5 +274,19 @@ async def download_job_result(
         )
     except HTTPException:
         raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/statistics")
+async def get_job_statistics(
+    job_tracker: JobTrackerService = Depends(get_job_tracker)
+):
+    """
+    Return simple aggregate statistics about jobs by status
+    """
+    try:
+        stats = await job_tracker.get_statistics()
+        return stats
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

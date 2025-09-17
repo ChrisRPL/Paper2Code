@@ -69,6 +69,12 @@ class Settings(BaseSettings):
     
     # WebSocket Configuration
     WS_HEARTBEAT_INTERVAL: int = 30
+
+    # Rate limiting (dev-friendly defaults)
+    RATE_LIMIT_ENABLED: bool = False
+    RATE_LIMIT_WINDOW_SECONDS: int = 10
+    RATE_LIMIT_MAX_REQUESTS: int = 5
+    RATE_LIMIT_PATHS: list[str] | None = None
     
     class Config:
         env_file = ".env"
